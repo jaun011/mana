@@ -11,7 +11,8 @@ async function registerCommands(options) {
 
   const settings = await settingsStore.get();
   const guildId = settings.guildId;
-  const applicationId = settings.clientId || client.application?.id || client.user?.id;
+  const resolvedRuntimeApplicationId = client.application?.id || client.user?.id;
+  const applicationId = resolvedRuntimeApplicationId || settings.clientId;
 
   if (!applicationId) {
     throw new Error("Nao foi possivel determinar o applicationId para registrar comandos.");
@@ -51,6 +52,10 @@ async function upsertCommands({ rest, body, applicationId, guildId, logger }) {
     await rest.put(Routes.applicationGuildCommands(applicationId, guildId), { body });
     return "guild";
   } catch (error) {
+  if (isUnauthorizedForApplication(error)) {
+      throw createCommandRegistrationError(error, applicationId);
+    }
+
     if (!shouldFallbackToGlobal(error)) {
       throw error;
     }
@@ -65,9 +70,37 @@ async function upsertCommands({ rest, body, applicationId, guildId, logger }) {
       }
     );
 
-    await rest.put(Routes.applicationCommands(applicationId), { body });
+    try {
+      await rest.put(Routes.applicationCommands(applicationId), { body });
+    } catch (error) {
+      if (isUnauthorizedForApplication(error)) {
+        throw createCommandRegistrationError(error, applicationId);
+      }
+
+      throw error;
+    }
+
     return "global";
   }
+}
+
+function isUnauthorizedForApplication(error) {
+  return Number(error?.code ?? 0) === 20012;
+}
+
+function createCommandRegistrationError(error, applicationId) {
+  const details = [
+    "Token sem permissao para registrar comandos nesta aplicacao.",
+    `applicationId utilizado: ${applicationId}.`,
+    "Verifique se o DISCORD_TOKEN pertence ao mesmo app do DISCORD_CLIENT_ID e do bot convidado no servidor."
+  ];
+
+  const wrappedError = new Error(details.join(" "));
+  wrappedError.cause = error;
+  wrappedError.code = error.code;
+  wrappedError.status = error.status;
+
+  return wrappedError;
 }
 
 function shouldFallbackToGlobal(error) {
