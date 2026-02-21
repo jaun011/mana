@@ -1,7 +1,12 @@
 const path = require("node:path");
 const dotenv = require("dotenv");
 
-dotenv.config({ quiet: true });
+const projectRoot = path.resolve(__dirname, "..", "..");
+
+dotenv.config({
+  quiet: true,
+  path: path.resolve(projectRoot, ".env")
+});
 
 function parseUserIds(rawIds) {
   if (!rawIds) {
@@ -20,11 +25,11 @@ const config = {
   discordGuildId: process.env.DISCORD_GUILD_ID ?? "",
   adminUserIds: parseUserIds(process.env.ADMIN_USER_IDS ?? ""),
   logLevel: process.env.LOG_LEVEL ?? "info",
-  assetsDir: path.resolve(process.cwd(), process.env.ASSETS_DIR ?? path.join("assets", "emojis")),
+  assetsDir: path.resolve(projectRoot, process.env.ASSETS_DIR ?? path.join("assets", "emojis")),
   syncApplicationEmojisOnStart:
     String(process.env.SYNC_APP_EMOJIS_ON_START ?? "true").toLowerCase() === "true",
-  settingsPath: path.resolve(process.cwd(), "data", "settings.json"),
-  errorLogPath: path.resolve(process.cwd(), "data", "error.log")
+  settingsPath: path.resolve(projectRoot, "data", "settings.json"),
+  errorLogPath: path.resolve(projectRoot, "data", "error.log")
 };
 
 function validateRuntimeConfig() {
